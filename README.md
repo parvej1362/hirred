@@ -296,22 +296,6 @@ Applicants    Track Applications
 
 ---
 
-# 📱 Screenshots
-
-Add screenshots here.
-
-```
-screenshots/
-
-├── home.png
-├── login.png
-├── dashboard.png
-├── jobs.png
-├── companies.png
-├── profile.png
-└── applications.png
-```
-
 ---
 
 # 🌟 Future Improvements
