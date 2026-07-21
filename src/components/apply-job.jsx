@@ -1,4 +1,5 @@
 /* eslint-disable react/prop-types */
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -54,6 +55,7 @@ export function ApplyJobDrawer({ user, job, fetchJob, applied = false }) {
   const {
     loading: loadingApply,
     error: errorApply,
+    data: dataApply,
     fn: fnApply,
   } = useFetch(applyToJob);
 
@@ -62,14 +64,19 @@ export function ApplyJobDrawer({ user, job, fetchJob, applied = false }) {
       ...data,
       job_id: job.id,
       candidate_id: user.id,
-      name: user.fullName,
+      name: user.fullName || user.firstName || user.primaryEmailAddress?.emailAddress || "Candidate",
       status: "applied",
       resume: data.resume[0],
-    }).then(() => {
-      fetchJob();
-      reset();
     });
   };
+
+  useEffect(() => {
+    if (dataApply?.length > 0) {
+      fetchJob();
+      reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataApply]);
 
   return (
     <Drawer open={applied ? false : undefined}>

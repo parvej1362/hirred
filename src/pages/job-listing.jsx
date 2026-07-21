@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { State } from "country-state-city";
-import dummyJobs from "@/data/dummy-jobs"; 
-import { Heart } from "lucide-react";
+import { useUser } from "@clerk/clerk-react";
+import { BarLoader } from "react-spinners";
 
 import JobCard from "@/components/job-card";
 import { Button } from "@/components/ui/button";
@@ -14,48 +14,47 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import useFetch from "@/hooks/use-fetch";
+import { getJobs } from "@/api/apijobs";
+import { getCompanies } from "@/api/apiCompanies";
 
 const JobListing = () => {
+  const { isLoaded } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [location, setLocation] = useState("");
   const [company_id, setCompany_id] = useState("");
-  const [jobs, setJobs] = useState(dummyJobs);
-  const [companies, setCompanies] = useState([]);
-  const [likedJobs, setLikedJobs] = useState({}); // ✅ New state
+
+  const {
+    fn: fnJobs,
+    data: jobs,
+    loading: loadingJobs,
+  } = useFetch(getJobs, { location, company_id, searchQuery });
+
+  const {
+    fn: fnCompanies,
+    data: companies,
+  } = useFetch(getCompanies);
 
   useEffect(() => {
-    const uniqueCompanies = [
-      ...new Set(dummyJobs.map((job) => job.company.name)),
-    ].map((name) => {
-      const job = dummyJobs.find((job) => job.company.name === name);
-      return { id: name, name };
-    });
+    if (isLoaded) {
+      fnCompanies();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
 
-    setCompanies(uniqueCompanies);
-  }, []);
+  useEffect(() => {
+    if (isLoaded) {
+      fnJobs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, location, company_id, searchQuery]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     let formData = new FormData(e.target);
     const query = formData.get("search-query");
-    if (query) setSearchQuery(query);
+    if (query !== null) setSearchQuery(query);
   };
-
-  useEffect(() => {
-    const filtered = dummyJobs.filter((job) => {
-      const matchesSearch =
-        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesLocation = location ? job.location === location : true;
-      const matchesCompany = company_id
-        ? job.company.name === company_id
-        : true;
-
-      return matchesSearch && matchesLocation && matchesCompany;
-    });
-
-    setJobs(filtered);
-  }, [searchQuery, location, company_id]);
 
   const clearFilters = () => {
     setSearchQuery("");
@@ -63,13 +62,9 @@ const JobListing = () => {
     setLocation("");
   };
 
-  // ✅ Toggle Like
-  const toggleLike = (jobId) => {
-    setLikedJobs((prev) => ({
-      ...prev,
-      [jobId]: !prev[jobId],
-    }));
-  };
+  if (!isLoaded) {
+    return <BarLoader className="mb-4" width={"100%"} color="#36d7b7" />;
+  }
 
   return (
     <div className="">
@@ -111,8 +106,8 @@ const JobListing = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              {companies.map(({ name, id }) => (
-                <SelectItem key={id} value={name}>
+              {companies?.map(({ name, id }) => (
+                <SelectItem key={id} value={id.toString()}>
                   {name}
                 </SelectItem>
               ))}
@@ -125,22 +120,27 @@ const JobListing = () => {
         </Button>
       </div>
 
-      <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {jobs.length > 0 ? (
-          jobs.map((job) => (
-            <JobCard
-              key={job.id}
-              job={job}
-              liked={likedJobs[job.id] || false}
-              onToggleLike={() => toggleLike(job.id)}
-            />
-          ))
-        ) : (
-          <div className="col-span-full text-center text-gray-500 text-lg">
-            No jobs found matching your filters.
-          </div>
-        )}
-      </div>
+      {loadingJobs && (
+        <BarLoader className="mt-4" width={"100%"} color="#36d7b7" />
+      )}
+
+      {loadingJobs === false && (
+        <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {jobs?.length > 0 ? (
+            jobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                savedInit={job?.saved?.length > 0}
+              />
+            ))
+          ) : (
+            <div className="col-span-full text-center text-gray-500 text-lg">
+              No jobs found matching your filters.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

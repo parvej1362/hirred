@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { BarLoader } from "react-spinners";
 import {
   Briefcase,
@@ -9,33 +9,51 @@ import {
   MapPinIcon,
 } from "lucide-react";
 
-import dummyJobs from "../data/dummy-jobs";
 import { ApplyJobDrawer } from "@/components/apply-job";
 import ApplicationCard from "@/components/application-card";
 import MDEditor from "@uiw/react-md-editor";
+import { getSingleJob, updateHiringStatus } from "@/api/apijobs";
+import useFetch from "@/hooks/use-fetch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const JobPage = () => {
   const { id } = useParams();
   const { isLoaded, user } = useUser();
-  const [job, setJob] = useState(null);
-  const [notFound, setNotFound] = useState(false);
+
+  const {
+    loading: loadingJob,
+    data: job,
+    fn: fnJob,
+  } = useFetch(getSingleJob, { job_id: id });
+
+  const {
+    loading: loadingHiringStatus,
+    fn: fnHiringStatus,
+  } = useFetch(updateHiringStatus, { job_id: id });
+
+  const handleStatusChange = (value) => {
+    const isOpen = value === "open";
+    fnHiringStatus(isOpen).then(() => fnJob());
+  };
 
   useEffect(() => {
     if (isLoaded) {
-      const selectedJob = dummyJobs.find((j) => j.id.toString() === id);
-      if (selectedJob) {
-        setJob(selectedJob);
-      } else {
-        setNotFound(true);
-      }
+      fnJob();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, id]);
 
-  if (!isLoaded) {
+  if (!isLoaded || loadingJob) {
     return <BarLoader className="mb-4" width={"100%"} color="#36d7b7" />;
   }
 
-  if (notFound) {
+  if (!job) {
     return (
       <div className="text-center mt-10">
         <h1 className="text-3xl font-bold text-red-400">404 - Job Not Found</h1>
@@ -43,8 +61,6 @@ const JobPage = () => {
       </div>
     );
   }
-
-  if (!job) return null; // Fallback in case job is still loading
 
   const isRecruiter = user?.id === job.recruiter_id;
 
@@ -67,43 +83,57 @@ const JobPage = () => {
           <Briefcase /> {job?.applications?.length || 0} Applicants
         </div>
         <div className="flex gap-2 items-center">
-          {job?.isOpen ? (
-            <>
-              <DoorOpen /> Open
-            </>
+          {isRecruiter ? (
+            <Select onValueChange={handleStatusChange} defaultValue={job?.isOpen ? "open" : "closed"}>
+              <SelectTrigger className={`w-32 ${job?.isOpen ? "bg-green-950 text-green-200" : "bg-red-950 text-red-200"}`}>
+                <SelectValue placeholder="Hiring Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
           ) : (
             <>
-              <DoorClosed /> Closed
+              {job?.isOpen ? (
+                <>
+                  <DoorOpen /> Open
+                </>
+              ) : (
+                <>
+                  <DoorClosed /> Closed
+                </>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {loadingHiringStatus && <BarLoader width={"100%"} color="#36d7b7" />}
 
       <h2 className="text-2xl sm:text-3xl font-bold">About the job</h2>
       <p className="sm:text-lg">{job?.description}</p>
 
       <h2 className="text-2xl sm:text-3xl font-bold">What we are looking for</h2>
       <MDEditor.Markdown
-  source={
-    Array.isArray(job?.requirements)
-      ? job.requirements.map((req) => `- ${req}`).join("\n")
-      : typeof job?.requirements === "string"
-      ? job.requirements
-          .split(",")
-          .map((req) => `- ${req.trim()}`)
-          .join("\n")
-      : ""
-  }
-  className="bg-transparent sm:text-lg"
-/>
-
-
+        source={
+          Array.isArray(job?.requirements)
+            ? job.requirements.map((req) => `- ${req}`).join("\n")
+            : typeof job?.requirements === "string"
+            ? job.requirements
+                .split(",")
+                .map((req) => `- ${req.trim()}`)
+                .join("\n")
+            : ""
+        }
+        className="bg-transparent sm:text-lg"
+      />
 
       {!isRecruiter && (
         <ApplyJobDrawer
           job={job}
           user={user}
-          fetchJob={() => {}}
+          fetchJob={() => fnJob({ job_id: id })}
           applied={job?.applications?.find((ap) => ap.candidate_id === user?.id)}
         />
       )}
