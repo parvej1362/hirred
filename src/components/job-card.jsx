@@ -62,18 +62,18 @@ const JobCard = ({
       {loadingDeleteJob && (
         <BarLoader className="mt-4" width={"100%"} color="#36d7b7" />
       )}
-      <CardHeader className="flex">
-        <CardTitle className="flex justify-between font-bold">
+      <CardHeader className="flex flex-row justify-between items-center w-full">
+        <CardTitle className="font-bold">
           {job.title}
-          {isMyJob && (
-            <Trash2Icon
-              fill="red"
-              size={18}
-              className="text-red-300 cursor-pointer"
-              onClick={handleDeleteJob}
-            />
-          )}
         </CardTitle>
+        {isMyJob && (
+          <Trash2Icon
+            fill="red"
+            size={18}
+            className="text-red-300 cursor-pointer hover:text-red-500 transition-colors"
+            onClick={handleDeleteJob}
+          />
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4 flex-1">
         <div className="flex justify-between">
